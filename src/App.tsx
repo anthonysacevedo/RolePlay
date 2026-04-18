@@ -15,10 +15,10 @@ import {
   Clapperboard,
   Image as ImageIcon
 } from 'lucide-react';
-import axios from 'axios';
+import { Card, CardGroup } from './types';
+import { api } from './services/api';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
-import { Card, CardGroup } from './types';
 
 // Auto-fitting text component
 const AutoFitText = ({ text, initialFontSize = 11.2 }: { text: string; initialFontSize?: number }) => {
@@ -130,8 +130,8 @@ export default function App() {
 
   const fetchGroups = async () => {
     try {
-      const res = await axios.get('/api/groups');
-      setGroups(res.data);
+      const data = await api.getGroups();
+      setGroups(data);
     } catch (err) {
       console.error('Error fetching groups:', err);
     }
@@ -176,12 +176,12 @@ export default function App() {
         return;
       }
 
-      const res = await axios.post('/api/cards', {
+      const res = await api.saveCard({
         ...formData,
         id: editingCardId
       });
 
-      if (res.data.success) {
+      if (res.success) {
         await fetchGroups();
         setFormData({
           situacion: '',
@@ -219,39 +219,21 @@ export default function App() {
 
   const performDeleteCard = async (gId: string, cardId: string) => {
     try {
-      const resp = await axios.delete(`/api/groups/${gId}/cards/${cardId}`, {
-        headers: { 'Cache-Control': 'no-cache' }
-      });
-      console.log('Delete API call status:', resp.status);
-      
-      const res = await axios.get(`/api/groups?t=${Date.now()}`, {
-        headers: { 'Cache-Control': 'no-cache' }
-      });
-      const updatedGroups: CardGroup[] = res.data;
-      setGroups(updatedGroups);
-
-      const updatedGroup = updatedGroups.find(g => String(g.id) === String(gId));
-      const updatedCards = updatedGroup?.cards || [];
-
-      if (updatedCards.length === 0) {
-        setSelectedGroupId(null);
-        setCurrentCardIndex(0);
-      } else {
-        if (currentCardIndex >= updatedCards.length) {
-          setCurrentCardIndex(Math.max(0, updatedCards.length - 1));
+      const resp = await api.deleteCard(gId, cardId);
+      if (resp.success) {
+        await fetchGroups();
+        
+        if (editingCardId === cardId) {
+          setEditingCardId(null);
+          setFormData({
+            situacion: '',
+            rol: '',
+            desarrollo: '',
+            tema: '',
+            setLabel: '',
+            backImage: null
+          });
         }
-      }
-
-      if (editingCardId === cardId) {
-        setEditingCardId(null);
-        setFormData({
-          situacion: '',
-          rol: '',
-          desarrollo: '',
-          tema: '',
-          setLabel: '',
-          backImage: null
-        });
       }
       setConfirmDelete(null);
     } catch (err: any) {
@@ -264,26 +246,18 @@ export default function App() {
 
   const performDeleteGroup = async (gId: string) => {
     try {
-      const resp = await axios.delete(`/api/groups/${gId}`, {
-        headers: { 'Cache-Control': 'no-cache' }
-      });
-      console.log('Delete group API call status:', resp.status);
-      
-      const res = await axios.get(`/api/groups?t=${Date.now()}`, {
-        headers: { 'Cache-Control': 'no-cache' }
-      });
-      console.log('Groups refreshed, count:', res.data.length);
-      setGroups(res.data);
-      
-      if (selectedGroupId === gId) {
-        setSelectedGroupId(null);
-        setCurrentCardIndex(0);
+      const resp = await api.deleteGroup(gId);
+      if (resp.success) {
+        await fetchGroups();
+        if (selectedGroupId === gId) {
+          setSelectedGroupId(null);
+          setCurrentCardIndex(0);
+        }
       }
       setConfirmDelete(null);
     } catch (err: any) {
       console.error('Error deleting group:', err);
-      const msg = err.response?.data?.error || err.message;
-      alert(`Error al eliminar el grupo: ${msg}`);
+      alert(`Error al eliminar el grupo: ${err.message}`);
       setConfirmDelete(null);
     }
   };

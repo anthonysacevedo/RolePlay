@@ -10,9 +10,18 @@ Aplicación full-stack para la creación, gestión y exportación (a PDF) de tar
 - **Ilustraciones Automáticas**: Los grupos sin imagen muestran ilustraciones generadas basadas en el nombre del rol.
 - **Exportación PDF**: Genera archivos PDF listos para imprimir con carátula y tarjetas.
 - **Almacenamiento Local**: Base de datos simple basada en archivo JSON (`storage.json`).
-- **Límites Ampliados**: Soporta imágenes de alta resolución (hasta 50MB por petición).
+- **Resiliencia de Almacenamiento**: Si la aplicación detecta que no hay un servidor (como en GitHub Pages), guarda todo automáticamente en el navegador (`localStorage`). Si hay un servidor Node.js, usa la base de datos JSON.
+- **Portabilidad Total**: Configurada para funcionar en subcarpetas de GitHub sin errores de rutas.
 
-## 🛠️ Tecnologías
+## 🚀 Despliegue en GitHub Pages
+
+Esta aplicación es compatible con GitHub Pages de forma nativa:
+1. Sube tu código a un repositorio.
+2. Ve a **Settings > Pages**.
+3. En **Build and deployment**, selecciona **GitHub Actions** o configura para desplegar la carpeta `dist`.
+   - *Nota*: Al ser estático, los datos que guardes solo se verán en tu navegador actual.
+
+## 💻 Instalación y Uso Local
 
 - **Frontend**: React (Vite), Tailwind CSS, Framer Motion, Lucide React.
 - **Backend**: Node.js, Express.
