@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Plus, 
@@ -20,10 +20,48 @@ import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { Card, CardGroup } from './types';
 
+// Auto-fitting text component
+const AutoFitText = ({ text, initialFontSize = 11.2 }: { text: string; initialFontSize?: number }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [fontSize, setFontSize] = useState(initialFontSize);
+
+  useLayoutEffect(() => {
+    // Reset font size when text changes
+    setFontSize(initialFontSize);
+  }, [text, initialFontSize]);
+
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    // Use a small delay to allow the browser to calculate scrollHeight correctly
+    const adjust = () => {
+      const isOverflowing = container.scrollHeight > container.clientHeight;
+      if (isOverflowing && fontSize > 4) {
+        setFontSize(f => f - 0.2);
+      }
+    };
+
+    const frame = requestAnimationFrame(adjust);
+    return () => cancelAnimationFrame(frame);
+  }, [fontSize, text]);
+
+  return (
+    <div ref={containerRef} className="h-full w-full overflow-hidden">
+      <div 
+        style={{ fontSize: `${fontSize}pt` }} 
+        className="leading-relaxed whitespace-pre-wrap text-justify"
+      >
+        {text}
+      </div>
+    </div>
+  );
+};
+
 // Functional Preview Components
 const CardFront = ({ card }: { card: Partial<Card> }) => (
   <div className="ambient-shadow rounded-2xl overflow-hidden aspect-[2.5/3.5] w-64 bg-surface-container-lowest border border-outline-variant/10 flex flex-col p-6 text-black font-sans">
-    <div className="flex justify-between items-center mb-1 text-[0.8rem] font-bold tracking-tight">
+    <div className="flex justify-between items-center mb-1 text-[0.8rem] font-bold tracking-tight uppercase">
       <span>Situación nº {card.situacion || '5'}</span>
       <span>{card.rol || 'Cliente'}</span>
     </div>
@@ -31,15 +69,15 @@ const CardFront = ({ card }: { card: Partial<Card> }) => (
     <div className="text-[0.65rem] leading-tight mb-4 text-justify font-light italic">
       Lee atentamente la situación, sin comentarla en voz alta, imagina cómo representarla y acción
     </div>
-    <div className="flex-grow px-1 py-4 overflow-hidden mb-4">
-      <div className="text-[0.7rem] leading-relaxed whitespace-pre-wrap">
-        {card.desarrollo || 'Se comunica porque está esperando su envío (un paquete contra-reembolso / PC) en su domicilio.\n\nSe encuentra preocupada porque hoy se cumple el 5to día hábil desde que se realizó el envío y el mismo aún no llega a su domicilio.'}
-      </div>
+    <div className="flex-grow px-1 py-4 overflow-hidden mb-4 h-[120px]">
+      <AutoFitText 
+        text={card.desarrollo || 'Se comunica porque está esperando su envío (un paquete contra-reembolso / PC) en su domicilio.\n\nSe encuentra preocupada porque hoy se cumple el 5to día hábil desde que se realizó el envío y el mismo aún no llega a su domicilio.'} 
+      />
     </div>
     <div className="text-center">
       <div className="border-t border-black/15 pt-2" />
       <div className="text-[0.65rem] font-bold text-black uppercase tracking-wider mt-1">
-        TEMA: {card.tema || 'Sucursales y Nacionales'}
+        {card.tema || 'Sucursales y Nacionales'}
       </div>
     </div>
   </div>
@@ -72,6 +110,7 @@ export default function App() {
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [editingCardId, setEditingCardId] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ type: 'card' | 'group', id: string, secondaryId?: string } | null>(null);
   
   const [formData, setFormData] = useState<Partial<Card>>({
     situacion: '',
@@ -104,12 +143,24 @@ export default function App() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
+    
+    // If user starts typing and we are viewing a group but NOT editing a specific card,
+    // exit the group view to show the new card preview.
+    if (selectedGroupId && !editingCardId) {
+      setSelectedGroupId(null);
+    }
+
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Logic: exit group view if just starting a new card
+      if (selectedGroupId && !editingCardId) {
+        setSelectedGroupId(null);
+      }
+
       const reader = new FileReader();
       reader.onloadend = () => {
         setFormData(prev => ({ ...prev, backImage: reader.result as string }));
@@ -142,8 +193,12 @@ export default function App() {
         });
         setEditingCardId(null);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error saving card:', err);
+      const msg = err.response?.status === 413 
+        ? 'La imagen es demasiado grande. Intenta con una de menor resolución.' 
+        : (err.response?.data?.error || err.message);
+      alert(`Error al guardar la tarjeta: ${msg}`);
     }
   };
 
@@ -162,34 +217,92 @@ export default function App() {
     }
   };
 
-  const handleDeleteCard = async () => {
-    if (!selectedGroupId || !cardsToShow[currentCardIndex]) return;
-    if (!confirm('¿Seguro que quieres eliminar esta tarjeta?')) return;
-
+  const performDeleteCard = async (gId: string, cardId: string) => {
     try {
-      await axios.delete(`/api/groups/${selectedGroupId}/cards/${cardsToShow[currentCardIndex].id}`);
-      await fetchGroups();
-      if (currentCardIndex >= cardsToShow.length - 1 && currentCardIndex > 0) {
-        setCurrentCardIndex(currentCardIndex - 1);
+      const resp = await axios.delete(`/api/groups/${gId}/cards/${cardId}`, {
+        headers: { 'Cache-Control': 'no-cache' }
+      });
+      console.log('Delete API call status:', resp.status);
+      
+      const res = await axios.get(`/api/groups?t=${Date.now()}`, {
+        headers: { 'Cache-Control': 'no-cache' }
+      });
+      const updatedGroups: CardGroup[] = res.data;
+      setGroups(updatedGroups);
+
+      const updatedGroup = updatedGroups.find(g => String(g.id) === String(gId));
+      const updatedCards = updatedGroup?.cards || [];
+
+      if (updatedCards.length === 0) {
+        setSelectedGroupId(null);
+        setCurrentCardIndex(0);
+      } else {
+        if (currentCardIndex >= updatedCards.length) {
+          setCurrentCardIndex(Math.max(0, updatedCards.length - 1));
+        }
       }
-    } catch (err) {
+
+      if (editingCardId === cardId) {
+        setEditingCardId(null);
+        setFormData({
+          situacion: '',
+          rol: '',
+          desarrollo: '',
+          tema: '',
+          setLabel: '',
+          backImage: null
+        });
+      }
+      setConfirmDelete(null);
+    } catch (err: any) {
       console.error('Error deleting card:', err);
+      const msg = err.response?.data?.error || err.message;
+      alert(`Error al eliminar la tarjeta: ${msg}`);
+      setConfirmDelete(null);
     }
   };
 
-  const handleDeleteGroup = async (groupId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!confirm('¿Seguro que quieres eliminar el grupo entero?')) return;
+  const performDeleteGroup = async (gId: string) => {
     try {
-      await axios.delete(`/api/groups/${groupId}`);
-      await fetchGroups();
-      if (selectedGroupId === groupId) {
+      const resp = await axios.delete(`/api/groups/${gId}`, {
+        headers: { 'Cache-Control': 'no-cache' }
+      });
+      console.log('Delete group API call status:', resp.status);
+      
+      const res = await axios.get(`/api/groups?t=${Date.now()}`, {
+        headers: { 'Cache-Control': 'no-cache' }
+      });
+      console.log('Groups refreshed, count:', res.data.length);
+      setGroups(res.data);
+      
+      if (selectedGroupId === gId) {
         setSelectedGroupId(null);
         setCurrentCardIndex(0);
       }
-    } catch (err) {
+      setConfirmDelete(null);
+    } catch (err: any) {
       console.error('Error deleting group:', err);
+      const msg = err.response?.data?.error || err.message;
+      alert(`Error al eliminar el grupo: ${msg}`);
+      setConfirmDelete(null);
     }
+  };
+
+  const handleDeleteCard = () => {
+    if (!selectedGroupId || !cardsToShow[currentCardIndex]) return;
+    setConfirmDelete({
+      type: 'card',
+      id: String(cardsToShow[currentCardIndex].id),
+      secondaryId: String(selectedGroupId)
+    });
+  };
+
+  const handleDeleteGroup = (groupId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setConfirmDelete({
+      type: 'group',
+      id: String(groupId)
+    });
   };
 
   const exportPDF = async (groupToExport?: CardGroup) => {
@@ -228,24 +341,45 @@ export default function App() {
     for (let i = 0; i < targetGroup.cards.length; i++) {
         const card = targetGroup.cards[i];
         
-        // Front
+        // Front with Auto-Fit logic for PDF
+        let pdfFontSize = 10.5;
         const frontElement = document.createElement('div');
         frontElement.style.width = '300px';
         frontElement.style.height = '375px';
         container.innerHTML = '';
         container.appendChild(frontElement);
-        frontElement.innerHTML = `
+
+        const getFrontHTML = (fs: number) => `
           <div style="width: 300px; height: 375px; background: white; border: 1px solid black; padding: 20px; color: black; font-family: Inter, sans-serif; display: flex; flex-direction: column; box-sizing: border-box;">
-            <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 11px; margin-bottom: 5px;">
+            <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 11px; margin-bottom: 5px; text-transform: uppercase;">
               <span>Situación nº ${card.situacion}</span>
               <span>${card.rol}</span>
             </div>
-            <div style="border-bottom: 2px solid #000; margin-bottom: 10px;"></div>
+            <div style="border-bottom: 2px solid rgba(0,0,0,0.2); margin-bottom: 10px;"></div>
             <div style="font-size: 8px; font-style: italic; margin-bottom: 10px; text-align: justify;">Lee atentamente la situación, sin comentarla en voz alta, imagina cómo representarla y acción</div>
-            <div style="flex-grow: 1; font-size: 10px; line-height: 1.4; white-space: pre-wrap;">${card.desarrollo}</div>
-            <div style="border-top: 1px solid #000; padding-top: 5px; text-align: center; font-size: 9px; font-weight: bold; text-transform: uppercase;">TEMA: ${card.tema}</div>
+            <div id="pdf-desc-container" style="flex-grow: 1; overflow: hidden; margin-bottom: 5px;">
+              <div id="pdf-desc-text" style="font-size: ${fs}pt; line-height: 1.4; white-space: pre-wrap; text-align: justify;">${card.desarrollo}</div>
+            </div>
+            <div style="border-top: 1px solid rgba(0,0,0,0.15); padding-top: 5px; text-align: center; font-size: 9px; font-weight: bold; text-transform: uppercase;">${card.tema}</div>
           </div>
         `;
+
+        frontElement.innerHTML = getFrontHTML(pdfFontSize);
+        
+        // Practical fit loop
+        let attempts = 0;
+        while (attempts < 50) {
+            const textEl = frontElement.querySelector('#pdf-desc-text') as HTMLElement;
+            const containerEl = frontElement.querySelector('#pdf-desc-container') as HTMLElement;
+            if (textEl && containerEl && textEl.scrollHeight > containerEl.clientHeight && pdfFontSize > 4) {
+                pdfFontSize -= 0.2;
+                frontElement.innerHTML = getFrontHTML(pdfFontSize);
+                attempts++;
+            } else {
+                break;
+            }
+        }
+
         const frontImg = await renderToCanvas(frontElement);
 
         // Back
@@ -417,7 +551,7 @@ export default function App() {
               <h2 className="text-xl font-bold">Tarjetas Preview</h2>
               {selectedGroup && (
                 <div className="text-sm font-medium text-on-surface-variant">
-                  {currentCardIndex + 1} de {cardsToShow.length} tarjétas
+                  {currentCardIndex + 1} de {cardsToShow.length} tarjetas
                 </div>
               )}
             </div>
@@ -518,14 +652,6 @@ export default function App() {
               <h2 className="font-sans font-bold text-3xl text-on-surface">Tarjetas Generadas</h2>
               <p className="text-on-surface-variant mt-2 font-medium">Gestiona tus colecciones y grupos de rol.</p>
             </div>
-            <div className="flex gap-4">
-              <button 
-                onClick={fetchGroups}
-                className="bg-surface-container-highest px-6 py-2.5 rounded-full font-bold text-sm text-on-surface-variant hover:bg-outline-variant transition-all"
-              >
-                Ver todas
-              </button>
-            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -551,8 +677,15 @@ export default function App() {
                           src={group.cards[0].backImage}
                         />
                       ) : (
-                        <div className="w-full h-full bg-primary-container/10 flex items-center justify-center text-primary-container">
-                          <Plus size={48} className="opacity-10" />
+                        <div className="w-full h-full relative overflow-hidden bg-primary/10">
+                          <img 
+                            src={`https://loremflickr.com/600/400/${encodeURIComponent((group.cards[0]?.rol || 'office') + ',illustration')}/all`}
+                            className="w-full h-full object-cover opacity-80 mix-blend-luminosity hover:opacity-100 hover:mix-blend-normal transition-all duration-700 contrast-125 brightness-90 shadow-inner"
+                            referrerPolicy="no-referrer"
+                            alt="Role Illustration"
+                          />
+                          <div className="absolute inset-0 bg-primary/20 mix-blend-multiply pointer-events-none" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-primary/30 to-transparent pointer-events-none" />
                         </div>
                       )}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
@@ -572,9 +705,10 @@ export default function App() {
                   <div className="flex items-center gap-2">
                     <button 
                       onClick={(e) => handleDeleteGroup(group.id, e)}
-                      className="text-on-surface-variant/40 hover:text-error transition-colors p-1"
+                      className="text-on-surface-variant/40 hover:text-error transition-colors p-2 relative z-50 rounded-full hover:bg-error/10"
+                      title="Eliminar Grupo"
                     >
-                      <Trash2 size={20} />
+                      <Trash2 size={24} />
                     </button>
                   </div>
                 </div>
@@ -589,44 +723,68 @@ export default function App() {
                 </div>
               </div>
             ))}
-
-            {/* New Group Trigger */}
-            <div 
-              onClick={() => {
-                setSelectedGroupId(null);
-                setFormData({
-                  situacion: '',
-                  rol: '',
-                  desarrollo: '',
-                  tema: '',
-                  setLabel: '',
-                  backImage: null
-                });
-                setEditingCardId(null);
-              }}
-              className="border-2 border-dashed border-outline-variant/50 p-6 rounded-2xl flex flex-col items-center justify-center text-center group cursor-pointer hover:bg-surface-container-low hover:border-primary-container transition-all min-h-[300px]"
-            >
-              <div className="w-16 h-16 rounded-full bg-surface-container-low flex items-center justify-center mb-4 group-hover:bg-primary-container/10 transition-all">
-                <Plus size={32} className="text-on-surface-variant group-hover:text-primary-container" />
-              </div>
-              <h3 className="font-bold text-lg text-on-surface-variant group-hover:text-on-surface">Crear Nuevo Grupo</h3>
-              <p className="text-sm text-on-surface-variant px-12 font-medium">Organiza tus tarjetas en colecciones temáticas</p>
-            </div>
           </div>
         </section>
       </main>
 
       <footer className="full-width mt-20 bg-surface-container-low">
-        <div className="flex flex-col md:flex-row justify-between items-center px-12 py-10 w-full max-w-[1440px] mx-auto">
-          <div className="font-sans text-[0.875rem] text-on-surface-variant font-medium mb-6 md:mb-0">
-            © 2024 Tarjetas RolePlay — Editorial Roleplay System
-          </div>
-          <div className="flex gap-8">
-            <a href="#" className="font-sans text-[0.875rem] text-on-surface-variant font-bold hover:text-primary transition-colors underline decoration-primary underline-offset-4">Soporte</a>
-            <a href="#" className="font-sans text-[0.875rem] text-on-surface-variant font-bold hover:text-primary transition-colors underline decoration-primary underline-offset-4">Guía de Estilo</a>
+        <div className="flex justify-center items-center px-12 py-10 w-full max-w-[1440px] mx-auto text-center">
+          <div className="font-sans text-[0.875rem] text-on-surface-variant font-medium">
+            2026 Tarjetas RolePlay - Creación Anthony Acevedo
           </div>
         </div>
       </footer>
+
+      {/* Custom Confirmation Modal */}
+      <AnimatePresence>
+        {confirmDelete && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            onClick={() => setConfirmDelete(null)}
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="bg-surface-container-low rounded-3xl p-8 max-w-sm w-full ambient-shadow border border-outline-variant/20"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="w-16 h-16 rounded-full bg-error/10 flex items-center justify-center text-error mb-6 mx-auto">
+                <Trash2 size={32} />
+              </div>
+              <h3 className="text-xl font-bold text-center mb-2">¿Confirmar eliminación?</h3>
+              <p className="text-on-surface-variant text-center mb-8 font-medium">
+                {confirmDelete.type === 'card' 
+                  ? 'Esta tarjeta se eliminará permanentemente del grupo.' 
+                  : 'Se eliminará el grupo completo junto con todas sus tarjetas.'}
+              </p>
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setConfirmDelete(null)}
+                  className="flex-1 px-4 py-3 rounded-xl font-bold border-2 border-outline-variant hover:bg-surface-container-highest transition-all"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={() => {
+                    if (confirmDelete.type === 'card' && confirmDelete.secondaryId) {
+                      performDeleteCard(confirmDelete.secondaryId, confirmDelete.id);
+                    } else {
+                      performDeleteGroup(confirmDelete.id);
+                    }
+                  }}
+                  className="flex-1 px-4 py-3 rounded-xl font-bold bg-error text-on-error hover:bg-error/90 transition-all shadow-lg shadow-error/20"
+                >
+                  Eliminar
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

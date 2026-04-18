@@ -12,7 +12,14 @@ async function startServer() {
   const PORT = 3000;
   const DATA_FILE = path.join(__dirname, 'storage.json');
 
-  app.use(express.json());
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+  // Logging middleware
+  app.use((req, res, next) => {
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+    next();
+  });
 
   // Initialize storage if not exists
   if (!fs.existsSync(DATA_FILE)) {
@@ -67,23 +74,50 @@ async function startServer() {
 
   app.delete('/api/groups/:groupId', (req, res) => {
     const { groupId } = req.params;
+    console.log(`[DELETE GROUP] Request for ID: "${groupId}"`);
     const storage = getStorage();
-    storage.groups = storage.groups.filter((g: any) => g.id !== groupId);
+    const initialCount = storage.groups.length;
+    
+    storage.groups = storage.groups.filter((g: any) => {
+      const match = g.id.toString() !== groupId.toString();
+      if (!match) console.log(`[DELETE GROUP] Found match and excluding group: ${g.name} (${g.id})`);
+      return match;
+    });
+    
+    console.log(`[DELETE GROUP] Before: ${initialCount}, After: ${storage.groups.length}`);
     saveStorage(storage);
     res.json({ success: true });
   });
 
   app.delete('/api/groups/:groupId/cards/:cardId', (req, res) => {
     const { groupId, cardId } = req.params;
+    console.log(`[DELETE CARD] Request for Card: "${cardId}" in Group: "${groupId}"`);
     const storage = getStorage();
-    const group = storage.groups.find((g: any) => g.id === groupId);
-    if (group) {
-      group.cards = group.cards.filter((c: any) => c.id !== cardId);
-      // If group is empty, maybe keep it or delete it? User says delete group via trash icon. 
-      // So we just remove the card here.
+    const groupIndex = storage.groups.findIndex((g: any) => g.id.toString() === groupId.toString());
+    
+    if (groupIndex !== -1) {
+      const group = storage.groups[groupIndex];
+      const initialCardCount = group.cards.length;
+      
+      group.cards = group.cards.filter((c: any) => {
+        const match = c.id.toString() !== cardId.toString();
+        if (!match) console.log(`[DELETE CARD] Found match and excluding card ID: ${c.id}`);
+        return match;
+      });
+      
+      console.log(`[DELETE CARD] Cards in group "${group.name}" before: ${initialCardCount}, after: ${group.cards.length}`);
+      
+      if (group.cards.length === 0) {
+        console.log(`[DELETE CARD] Group "${group.name}" is now empty, removing group.`);
+        storage.groups.splice(groupIndex, 1);
+      }
+      
       saveStorage(storage);
+      return res.json({ success: true });
+    } else {
+      console.log(`[DELETE CARD] ERROR: Group ID "${groupId}" not found in storage.`);
+      return res.status(404).json({ error: 'Group not found' });
     }
-    res.json({ success: true });
   });
 
   // Vite middleware for development
