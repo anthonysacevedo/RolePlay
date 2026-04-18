@@ -1,20 +1,61 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Tarjetas RolePlay - Generador de Diferenciales
 
-# Run and deploy your AI Studio app
+Aplicación full-stack para la creación, gestión y exportación (a PDF) de tarjetas de RolePlay temáticas. Diseñada con una estética moderna, responsiva y con integración de ilustraciones automáticas por rol.
 
-This contains everything you need to run your app locally.
+## 🚀 Características
 
-View your app in AI Studio: https://ai.studio/apps/9ac91889-928c-4cd3-879e-88780588ae8b
+- **Generador de Tarjetas**: Crea tarjetas con situación, rol y desarrollo.
+- **Vista Previa en Vivo**: Visualiza cómo quedará la tarjeta antes de guardarla.
+- **Organización por Grupos**: Las tarjetas se agrupan automáticamente por tema.
+- **Ilustraciones Automáticas**: Los grupos sin imagen muestran ilustraciones generadas basadas en el nombre del rol.
+- **Exportación PDF**: Genera archivos PDF listos para imprimir con carátula y tarjetas.
+- **Almacenamiento Local**: Base de datos simple basada en archivo JSON (`storage.json`).
+- **Límites Ampliados**: Soporta imágenes de alta resolución (hasta 50MB por petición).
 
-## Run Locally
+## 🛠️ Tecnologías
 
-**Prerequisites:**  Node.js
+- **Frontend**: React (Vite), Tailwind CSS, Framer Motion, Lucide React.
+- **Backend**: Node.js, Express.
+- **Utilidades**: jsPDF, html2canvas, Axios.
 
+## 💻 Instalación y Uso Local
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+Para ejecutar este proyecto en tu propia máquina (o después de clonarlo desde GitHub), sigue estos pasos:
+
+### 1. Requisitos previos
+Asegúrate de tener instalado [Node.js](https://nodejs.org/) (versión 18 o superior).
+
+### 2. Instalación de dependencias
+Abre una terminal en la carpeta del proyecto y ejecuta:
+```bash
+npm install
+```
+
+### 3. Ejecución en modo desarrollo
+Para iniciar el servidor de desarrollo (backend + frontend con hot-reload):
+```bash
+npm run dev
+```
+La aplicación estará disponible en `http://localhost:3000`.
+
+### 4. Construcción para producción
+Si deseas generar una versión optimizada para desplegar:
+```bash
+npm run build
+npm start
+```
+
+## 📁 Estructura del Proyecto
+
+- `server.ts`: Servidor Express que gestiona la API y el almacenamiento de datos.
+- `storage.json`: Archivo donde se guardan las tarjetas y grupos de forma persistente.
+- `src/App.tsx`: Componente principal de la interfaz React.
+- `src/index.css`: Estilos globales y configuración del tema visual.
+
+## 📝 Notas importantes sobre GitHub
+
+- **Datos persistentes**: El archivo `storage.json` se crea automáticamente la primera vez que guardas una tarjeta. Se recomienda añadirlo al `.gitignore` si no quieres compartir tus datos de prueba en el repositorio.
+- **Variables de entorno**: Si decides añadir funciones de IA de Google, deberás configurar la variable `GEMINI_API_KEY` en un archivo `.env`.
+
+---
+Creado por Anthony Acevedo - 2026
