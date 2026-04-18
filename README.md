@@ -15,11 +15,14 @@ Aplicación full-stack para la creación, gestión y exportación (a PDF) de tar
 
 ## 🚀 Despliegue en GitHub Pages
 
-Esta aplicación es compatible con GitHub Pages de forma nativa:
-1. Sube tu código a un repositorio.
-2. Ve a **Settings > Pages**.
-3. En **Build and deployment**, selecciona **GitHub Actions** o configura para desplegar la carpeta `dist`.
-   - *Nota*: Al ser estático, los datos que guardes solo se verán en tu navegador actual.
+Esta aplicación está configurada para desplegarse automáticamente:
+1. Sube tu código a un repositorio en GitHub.
+2. Ve a **Settings > Actions > General** y asegúrate de que el permiso de lectura/escritura esté activado para los flujos de trabajo (Workflow permissions).
+3. Ve a **Settings > Pages**.
+4. En **Build and deployment**, cambia la fuente (Source) a **"GitHub Actions"**.
+5. La próxima vez que subas cambios (push), GitHub compilará el proyecto y lo publicará automáticamente.
+
+   - *Nota*: Al ser estático en GitHub Pages, los datos que guardes se almacenarán localmente en tu navegador.
 
 ## 💻 Instalación y Uso Local
 
