@@ -2,8 +2,9 @@ import axios from 'axios';
 
 // Detect if we are running in a static environment (like GitHub Pages) 
 // or if we should use the local Express server.
-const meta = import.meta as any;
-const isStatic = meta.env.PROD && !window.location.hostname.includes('run.app') && !window.location.hostname.includes('localhost');
+const isStatic = !!(import.meta as any).env?.PROD && 
+                 !window.location.hostname.includes('run.app') && 
+                 !window.location.hostname.includes('localhost');
 
 interface Card {
   id: string;
