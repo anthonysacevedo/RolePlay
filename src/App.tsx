@@ -1,0 +1,632 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { 
+  Plus, 
+  Trash2, 
+  Download, 
+  ChevronLeft, 
+  ChevronRight, 
+  Upload, 
+  Film,
+  Camera,
+  Edit2,
+  FileText,
+  RotateCcw,
+  Clapperboard,
+  Image as ImageIcon
+} from 'lucide-react';
+import axios from 'axios';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
+import { Card, CardGroup } from './types';
+
+// Functional Preview Components
+const CardFront = ({ card }: { card: Partial<Card> }) => (
+  <div className="ambient-shadow rounded-2xl overflow-hidden aspect-[2.5/3.5] w-64 bg-surface-container-lowest border border-outline-variant/10 flex flex-col p-6 text-black font-sans">
+    <div className="flex justify-between items-center mb-1 text-[0.8rem] font-bold tracking-tight">
+      <span>Situación nº {card.situacion || '5'}</span>
+      <span>{card.rol || 'Cliente'}</span>
+    </div>
+    <div className="border-b border-black/20 mb-4" />
+    <div className="text-[0.65rem] leading-tight mb-4 text-justify font-light italic">
+      Lee atentamente la situación, sin comentarla en voz alta, imagina cómo representarla y acción
+    </div>
+    <div className="flex-grow px-1 py-4 overflow-hidden mb-4">
+      <div className="text-[0.7rem] leading-relaxed whitespace-pre-wrap">
+        {card.desarrollo || 'Se comunica porque está esperando su envío (un paquete contra-reembolso / PC) en su domicilio.\n\nSe encuentra preocupada porque hoy se cumple el 5to día hábil desde que se realizó el envío y el mismo aún no llega a su domicilio.'}
+      </div>
+    </div>
+    <div className="text-center">
+      <div className="border-t border-black/15 pt-2" />
+      <div className="text-[0.65rem] font-bold text-black uppercase tracking-wider mt-1">
+        TEMA: {card.tema || 'Sucursales y Nacionales'}
+      </div>
+    </div>
+  </div>
+);
+
+const CardBack = ({ card }: { card: Partial<Card> }) => (
+  <div className="ambient-shadow rounded-2xl overflow-hidden aspect-[2.5/3.5] w-64 bg-white text-black border border-black/10 relative flex flex-col items-center justify-center">
+    <div className="absolute inset-4 border-2 border-black/80 rounded-xl" />
+    <div className="absolute inset-6 border border-black/40 rounded-lg" />
+    <div className="z-10 text-center flex flex-col items-center p-4">
+      {card.backImage ? (
+        <img 
+          src={card.backImage} 
+          alt="Set Cover" 
+          className="w-16 h-16 object-cover rounded mb-2 border border-black/10" 
+          referrerPolicy="no-referrer" 
+        />
+      ) : (
+        <Clapperboard className="w-12 h-12 mb-2" />
+      )}
+      <div className="text-[0.7rem] font-black uppercase tracking-widest text-center px-4 leading-tight">
+        {card.setLabel || 'CORREO RolePlay'}
+      </div>
+    </div>
+  </div>
+);
+
+export default function App() {
+  const [groups, setGroups] = useState<CardGroup[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [currentCardIndex, setCurrentCardIndex] = useState(0);
+  const [editingCardId, setEditingCardId] = useState<string | null>(null);
+  
+  const [formData, setFormData] = useState<Partial<Card>>({
+    situacion: '',
+    rol: '',
+    desarrollo: '',
+    tema: '',
+    setLabel: '',
+    backImage: null
+  });
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    fetchGroups();
+  }, []);
+
+  const fetchGroups = async () => {
+    try {
+      const res = await axios.get('/api/groups');
+      setGroups(res.data);
+    } catch (err) {
+      console.error('Error fetching groups:', err);
+    }
+  };
+
+  const selectedGroup = groups.find(g => g.id === selectedGroupId);
+  const cardsToShow = selectedGroup?.cards || [];
+  const currentCard = selectedGroupId ? cardsToShow[currentCardIndex] : formData;
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData(prev => ({ ...prev, backImage: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleCreateOrUpdate = async () => {
+    try {
+      if (!formData.tema) {
+        alert('Por favor ingresa un tema');
+        return;
+      }
+
+      const res = await axios.post('/api/cards', {
+        ...formData,
+        id: editingCardId
+      });
+
+      if (res.data.success) {
+        await fetchGroups();
+        setFormData({
+          situacion: '',
+          rol: '',
+          desarrollo: '',
+          tema: '',
+          setLabel: '',
+          backImage: null
+        });
+        setEditingCardId(null);
+      }
+    } catch (err) {
+      console.error('Error saving card:', err);
+    }
+  };
+
+  const handleEdit = () => {
+    if (selectedGroupId && cardsToShow[currentCardIndex]) {
+      const card = cardsToShow[currentCardIndex];
+      setFormData({
+        situacion: card.situacion,
+        rol: card.rol,
+        desarrollo: card.desarrollo,
+        tema: card.tema,
+        setLabel: card.setLabel,
+        backImage: card.backImage
+      });
+      setEditingCardId(card.id);
+    }
+  };
+
+  const handleDeleteCard = async () => {
+    if (!selectedGroupId || !cardsToShow[currentCardIndex]) return;
+    if (!confirm('¿Seguro que quieres eliminar esta tarjeta?')) return;
+
+    try {
+      await axios.delete(`/api/groups/${selectedGroupId}/cards/${cardsToShow[currentCardIndex].id}`);
+      await fetchGroups();
+      if (currentCardIndex >= cardsToShow.length - 1 && currentCardIndex > 0) {
+        setCurrentCardIndex(currentCardIndex - 1);
+      }
+    } catch (err) {
+      console.error('Error deleting card:', err);
+    }
+  };
+
+  const handleDeleteGroup = async (groupId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm('¿Seguro que quieres eliminar el grupo entero?')) return;
+    try {
+      await axios.delete(`/api/groups/${groupId}`);
+      await fetchGroups();
+      if (selectedGroupId === groupId) {
+        setSelectedGroupId(null);
+        setCurrentCardIndex(0);
+      }
+    } catch (err) {
+      console.error('Error deleting group:', err);
+    }
+  };
+
+  const exportPDF = async (groupToExport?: CardGroup) => {
+    const targetGroup = groupToExport || selectedGroup;
+    if (!targetGroup || targetGroup.cards.length === 0) {
+      alert('No hay tarjetas para exportar');
+      return;
+    }
+
+    const doc = new jsPDF({
+      orientation: 'landscape',
+      unit: 'cm',
+      format: 'a4'
+    });
+
+    const cardWidth = 8;
+    const cardHeight = 10;
+    const margin = 1;
+    const pageWidth = 29.7;
+    const pageHeight = 21;
+
+    const container = document.createElement('div');
+    container.style.position = 'absolute';
+    container.style.left = '-9999px';
+    container.style.top = '0';
+    document.body.appendChild(container);
+
+    const renderToCanvas = async (node: HTMLElement) => {
+      const canvas = await html2canvas(node, { scale: 3, useCORS: true, backgroundColor: '#ffffff' });
+      return canvas.toDataURL('image/png');
+    };
+
+    let x = margin;
+    let y = margin;
+
+    for (let i = 0; i < targetGroup.cards.length; i++) {
+        const card = targetGroup.cards[i];
+        
+        // Front
+        const frontElement = document.createElement('div');
+        frontElement.style.width = '300px';
+        frontElement.style.height = '375px';
+        container.innerHTML = '';
+        container.appendChild(frontElement);
+        frontElement.innerHTML = `
+          <div style="width: 300px; height: 375px; background: white; border: 1px solid black; padding: 20px; color: black; font-family: Inter, sans-serif; display: flex; flex-direction: column; box-sizing: border-box;">
+            <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 11px; margin-bottom: 5px;">
+              <span>Situación nº ${card.situacion}</span>
+              <span>${card.rol}</span>
+            </div>
+            <div style="border-bottom: 2px solid #000; margin-bottom: 10px;"></div>
+            <div style="font-size: 8px; font-style: italic; margin-bottom: 10px; text-align: justify;">Lee atentamente la situación, sin comentarla en voz alta, imagina cómo representarla y acción</div>
+            <div style="flex-grow: 1; font-size: 10px; line-height: 1.4; white-space: pre-wrap;">${card.desarrollo}</div>
+            <div style="border-top: 1px solid #000; padding-top: 5px; text-align: center; font-size: 9px; font-weight: bold; text-transform: uppercase;">TEMA: ${card.tema}</div>
+          </div>
+        `;
+        const frontImg = await renderToCanvas(frontElement);
+
+        // Back
+        const backElement = document.createElement('div');
+        backElement.style.width = '300px';
+        backElement.style.height = '375px';
+        container.innerHTML = '';
+        container.appendChild(backElement);
+        backElement.innerHTML = `
+          <div style="width: 300px; height: 375px; background: white; border: 1px solid black; padding: 20px; color: black; font-family: Inter, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; box-sizing: border-box;">
+            <div style="position: absolute; inset: 15px; border: 2px solid black; border-radius: 10px;"></div>
+            <div style="z-index: 10; text-align: center; font-weight: 900; text-transform: uppercase; font-size: 11px; letter-spacing: 2px;">
+              ${card.backImage ? `<img src="${card.backImage}" style="width: 70px; height: 70px; object-fit: cover; border-radius: 8px; margin-bottom: 10px; border: 1px solid black;" />` : `<div style="font-size: 40px; margin-bottom: 15px;">🎭</div>`}
+              <div style="border-top: 1px solid black; padding-top: 5px;">${card.setLabel || 'CORREO ROLEPLAY'}</div>
+            </div>
+          </div>
+        `;
+        const backImg = await renderToCanvas(backElement);
+
+        if (x + 2 * cardWidth + 0.5 > pageWidth - margin) {
+          x = margin;
+          y += cardHeight + 0.5;
+        }
+        if (y + cardHeight > pageHeight - margin) {
+          doc.addPage('landscape');
+          x = margin;
+          y = margin;
+        }
+
+        doc.addImage(frontImg, 'PNG', x, y, cardWidth, cardHeight);
+        const cl = 0.4;
+        doc.setDrawColor(200);
+        doc.line(x, y, x+cl, y); doc.line(x, y, x, y+cl);
+        doc.line(x+cardWidth, y, x+cardWidth-cl, y); doc.line(x+cardWidth, y, x+cardWidth, y+cl);
+        doc.line(x, y+cardHeight, x+cl, y+cardHeight); doc.line(x, y+cardHeight, x, y+cardHeight-cl);
+        doc.line(x+cardWidth, y+cardHeight, x+cardWidth-cl, y+cardHeight); doc.line(x+cardWidth, y+cardHeight, x+cardWidth, y+cardHeight-cl);
+
+        x += cardWidth + 0.1;
+
+        doc.addImage(backImg, 'PNG', x, y, cardWidth, cardHeight);
+        doc.line(x, y, x+cl, y); doc.line(x, y, x, y+cl);
+        doc.line(x+cardWidth, y, x+cardWidth-cl, y); doc.line(x+cardWidth, y, x+cardWidth, y+cl);
+        doc.line(x, y+cardHeight, x+cl, y+cardHeight); doc.line(x, y+cardHeight, x, y+cardHeight-cl);
+        doc.line(x+cardWidth, y+cardHeight, x+cardWidth-cl, y+cardHeight); doc.line(x+cardWidth, y+cardHeight, x+cardWidth, y+cardHeight-cl);
+
+        x += cardWidth + 0.8;
+    }
+
+    document.body.removeChild(container);
+    doc.save(`${targetGroup.name}_Cards.pdf`);
+  };
+
+  return (
+    <div className="bg-surface text-on-surface">
+      {/* TopAppBar Section */}
+      <header className="docked full-width top-0 z-50 bg-surface dark:bg-slate-950">
+        <nav className="flex justify-between items-center w-full px-8 py-6 max-w-[1440px] mx-auto">
+          <div 
+            onClick={() => { setSelectedGroupId(null); fetchGroups(); }}
+            className="text-2xl font-black tracking-tight text-on-surface cursor-pointer"
+          >
+            Tarjetas RolePlay
+          </div>
+        </nav>
+      </header>
+
+      <main className="max-w-[1440px] mx-auto px-8 py-12">
+        <h1 className="font-sans font-bold text-[2.75rem] leading-tight text-on-surface mb-12">Generador de Tarjetas</h1>
+        
+        {/* Main Generator Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+          
+          {/* Left Column: Input Form */}
+          <section className="lg:col-span-5 space-y-10 bg-surface-container-low p-8 rounded-xl h-fit">
+            <div className="space-y-6">
+              <h2 className="text-xl font-bold tracking-tight border-b border-outline-variant/20 pb-4">Configuración de Escena</h2>
+              
+              <div className="grid grid-cols-3 gap-4">
+                <div className="col-span-1">
+                  <label className="block text-[0.75rem] font-bold text-on-surface-variant uppercase tracking-wider mb-2">Situación</label>
+                  <input 
+                    name="situacion"
+                    value={formData.situacion}
+                    onChange={handleInputChange}
+                    className="w-full bg-surface-container-lowest border-none rounded-xl p-4 focus:ring-2 focus:ring-primary-container transition-all" 
+                    placeholder="01" 
+                    type="text"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-[0.75rem] font-bold text-on-surface-variant uppercase tracking-wider mb-2">Rol</label>
+                  <input 
+                    name="rol"
+                    value={formData.rol}
+                    onChange={handleInputChange}
+                    className="w-full bg-surface-container-lowest border-none rounded-xl p-4 focus:ring-2 focus:ring-primary-container transition-all" 
+                    placeholder="Ej: Explorador" 
+                    type="text"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[0.75rem] font-bold text-on-surface-variant uppercase tracking-wider mb-2">Desarrollo</label>
+                <textarea 
+                  name="desarrollo"
+                  value={formData.desarrollo}
+                  onChange={handleInputChange}
+                  className="w-full bg-surface-container-lowest border-none rounded-xl p-4 focus:ring-2 focus:ring-primary-container transition-all resize-none min-h-[160px]" 
+                  placeholder="Describe el contexto o la acción principal..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-[0.75rem] font-bold text-on-surface-variant uppercase tracking-wider mb-2">Tema</label>
+                <div className="flex gap-3">
+                  <input 
+                    name="tema"
+                    value={formData.tema}
+                    onChange={handleInputChange}
+                    className="flex-grow bg-surface-container-lowest border-none rounded-xl p-4 focus:ring-2 focus:ring-primary-container transition-all" 
+                    placeholder="Fantasía Oscura" 
+                    type="text"
+                  />
+                  <button 
+                    onClick={handleCreateOrUpdate}
+                    className="bg-inverse-surface text-inverse-on-surface px-6 py-4 rounded-xl font-bold transition-all hover:opacity-90 active:scale-95 whitespace-nowrap"
+                  >
+                    {editingCardId ? 'Actualizar' : 'Crear'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-6 pt-6 border-t border-outline-variant/10">
+              <h2 className="text-xl font-bold tracking-tight border-b border-outline-variant/20 pb-4">Editar Dorso</h2>
+              <div className="flex items-end gap-4">
+                <div className="flex-grow">
+                  <label className="block text-[0.75rem] font-bold text-on-surface-variant uppercase tracking-wider mb-2">Nombre del Set</label>
+                  <input 
+                    name="setLabel"
+                    value={formData.setLabel}
+                    onChange={handleInputChange}
+                    className="w-full bg-surface-container-lowest border-none rounded-xl p-4 focus:ring-2 focus:ring-primary-container transition-all" 
+                    placeholder="Aventura en el Bosque" 
+                    type="text"
+                  />
+                </div>
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  onChange={handleImageUpload} 
+                  className="hidden" 
+                  accept="image/*"
+                />
+                <button 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="bg-primary-container/10 text-primary-container px-6 py-4 rounded-xl font-bold flex items-center gap-2 hover:bg-primary-container/20 transition-all h-[56px] whitespace-nowrap"
+                >
+                  <Upload size={20} /> Imagen
+                </button>
+              </div>
+            </div>
+          </section>
+
+          {/* Right Column: Preview */}
+          <section className="lg:col-span-7 bg-surface-container-high p-8 rounded-xl relative flex flex-col">
+            <div className="flex justify-between items-center mb-8">
+              <h2 className="text-xl font-bold">Tarjetas Preview</h2>
+              {selectedGroup && (
+                <div className="text-sm font-medium text-on-surface-variant">
+                  {currentCardIndex + 1} de {cardsToShow.length} tarjétas
+                </div>
+              )}
+            </div>
+
+            <div className="flex-grow flex items-center justify-center gap-8 mb-12">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={`front-${selectedGroupId}-${currentCardIndex}-${JSON.stringify(formData)}`}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 1.05 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <CardFront card={currentCard} />
+                </motion.div>
+                <motion.div
+                  key={`back-${selectedGroupId}-${currentCardIndex}-${JSON.stringify(formData)}`}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 1.05 }}
+                  transition={{ duration: 0.2, delay: 0.1 }}
+                >
+                  <CardBack card={currentCard} />
+                </motion.div>
+              </AnimatePresence>
+            </div>
+
+            {/* Carousel Controls */}
+            {selectedGroupId ? (
+              <div className="space-y-8">
+                <div className="relative px-12">
+                  <button 
+                    onClick={() => setCurrentCardIndex(p => Math.max(0, p - 1))}
+                    disabled={currentCardIndex === 0}
+                    className="absolute left-0 top-1/2 -translate-y-1/2 p-2 rounded-full hover:bg-surface-variant transition-all text-on-surface-variant disabled:opacity-20"
+                  >
+                    <ChevronLeft size={32} />
+                  </button>
+                  <div className="flex gap-4 overflow-x-auto no-scrollbar pb-4 scroll-smooth">
+                    {cardsToShow.map((card, idx) => (
+                      <button
+                        key={card.id}
+                        onClick={() => setCurrentCardIndex(idx)}
+                        className={`flex-shrink-0 w-20 h-28 rounded-lg bg-surface-container-lowest ambient-shadow p-1 transition-all ${idx === currentCardIndex ? 'border-2 border-primary' : 'opacity-60 grayscale'}`}
+                      >
+                         <div className="w-full h-full bg-surface-container-low rounded-md overflow-hidden flex items-center justify-center text-[0.6rem] font-bold">
+                           {card.backImage ? (
+                             <img src={card.backImage} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                           ) : (
+                             <span>{card.situacion}</span>
+                           )}
+                         </div>
+                      </button>
+                    ))}
+                  </div>
+                  <button 
+                    onClick={() => setCurrentCardIndex(p => Math.min(cardsToShow.length - 1, p + 1))}
+                    disabled={currentCardIndex === cardsToShow.length - 1}
+                    className="absolute right-0 top-1/2 -translate-y-1/2 p-2 rounded-full hover:bg-surface-variant transition-all text-on-surface-variant disabled:opacity-20"
+                  >
+                    <ChevronRight size={32} />
+                  </button>
+                </div>
+
+                <div className="mt-8 flex justify-end gap-3 flex-wrap">
+                  <button 
+                    onClick={handleEdit}
+                    className="bg-transparent border-2 border-black text-black px-8 py-4 rounded-full font-bold text-sm uppercase tracking-widest transition-all hover:bg-black/5 active:scale-95"
+                  >
+                    Editar
+                  </button>
+                  <button 
+                    onClick={handleDeleteCard}
+                    className="bg-transparent border-2 border-black text-black px-8 py-4 rounded-full font-bold text-sm uppercase tracking-widest transition-all hover:bg-error hover:text-on-error hover:border-error active:scale-95"
+                  >
+                    Eliminar
+                  </button>
+                  <button 
+                    onClick={() => exportPDF()}
+                    className="bg-primary text-on-primary px-10 py-4 rounded-full font-black text-sm uppercase tracking-widest shadow-2xl shadow-primary/30 transition-all hover:-translate-y-1 active:translate-y-0"
+                  >
+                    Exportar PDF
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="h-32 flex items-center justify-center text-on-surface-variant/50 font-medium italic border-2 border-dashed border-outline-variant/30 rounded-xl">
+                 Ingresa datos para ver la vista previa en vivo
+              </div>
+            )}
+          </section>
+        </div>
+
+        {/* Gallery Section */}
+        <section className="mt-24">
+          <div className="flex justify-between items-end mb-10">
+            <div>
+              <h2 className="font-sans font-bold text-3xl text-on-surface">Tarjetas Generadas</h2>
+              <p className="text-on-surface-variant mt-2 font-medium">Gestiona tus colecciones y grupos de rol.</p>
+            </div>
+            <div className="flex gap-4">
+              <button 
+                onClick={fetchGroups}
+                className="bg-surface-container-highest px-6 py-2.5 rounded-full font-bold text-sm text-on-surface-variant hover:bg-outline-variant transition-all"
+              >
+                Ver todas
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {groups.map((group) => (
+              <div 
+                key={group.id}
+                onClick={() => {
+                  setSelectedGroupId(group.id);
+                  setCurrentCardIndex(0);
+                }}
+                className={`bg-surface-container-low p-6 rounded-2xl group transition-all hover:bg-surface-container-highest/50 relative border-2 ${selectedGroupId === group.id ? 'border-primary' : 'border-transparent'}`}
+              >
+                <div className="relative h-48 mb-6">
+                  {/* Stack effect */}
+                  <div className="absolute inset-0 bg-surface-container-lowest rounded-xl translate-x-4 translate-y-4 ambient-shadow opacity-40"></div>
+                  <div className="absolute inset-0 bg-surface-container-lowest rounded-xl translate-x-2 translate-y-2 ambient-shadow opacity-70"></div>
+                  <div className="absolute inset-0 bg-surface-container-lowest rounded-xl ambient-shadow p-4 flex flex-col">
+                    <div className="flex-grow rounded-lg overflow-hidden relative border border-outline-variant/10">
+                      {group.cards[0]?.backImage ? (
+                        <img 
+                          className="w-full h-full object-cover" 
+                          referrerPolicy="no-referrer" 
+                          src={group.cards[0].backImage}
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-primary-container/10 flex items-center justify-center text-primary-container">
+                          <Plus size={48} className="opacity-10" />
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                      <div className="absolute bottom-3 left-3 text-white">
+                        <p className="text-[0.6rem] font-bold uppercase tracking-widest opacity-80">Vista Previa</p>
+                        <p className="text-xs font-bold truncate max-w-[140px]">{group.cards[0]?.rol || 'Sin título'}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-start mb-6">
+                  <div>
+                    <h3 className="font-bold text-lg">{group.name}</h3>
+                    <p className="text-sm text-on-surface-variant font-medium">{group.cards.length} tarjetas creadas</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={(e) => handleDeleteGroup(group.id, e)}
+                      className="text-on-surface-variant/40 hover:text-error transition-colors p-1"
+                    >
+                      <Trash2 size={20} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                   <button 
+                    onClick={(e) => { e.stopPropagation(); exportPDF(group); }}
+                    className="flex-grow bg-primary text-on-primary py-3 rounded-xl text-sm font-bold transition-all hover:bg-primary/90 flex items-center justify-center gap-2"
+                   >
+                     <Download size={18} /> Exportar PDF
+                   </button>
+                </div>
+              </div>
+            ))}
+
+            {/* New Group Trigger */}
+            <div 
+              onClick={() => {
+                setSelectedGroupId(null);
+                setFormData({
+                  situacion: '',
+                  rol: '',
+                  desarrollo: '',
+                  tema: '',
+                  setLabel: '',
+                  backImage: null
+                });
+                setEditingCardId(null);
+              }}
+              className="border-2 border-dashed border-outline-variant/50 p-6 rounded-2xl flex flex-col items-center justify-center text-center group cursor-pointer hover:bg-surface-container-low hover:border-primary-container transition-all min-h-[300px]"
+            >
+              <div className="w-16 h-16 rounded-full bg-surface-container-low flex items-center justify-center mb-4 group-hover:bg-primary-container/10 transition-all">
+                <Plus size={32} className="text-on-surface-variant group-hover:text-primary-container" />
+              </div>
+              <h3 className="font-bold text-lg text-on-surface-variant group-hover:text-on-surface">Crear Nuevo Grupo</h3>
+              <p className="text-sm text-on-surface-variant px-12 font-medium">Organiza tus tarjetas en colecciones temáticas</p>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer className="full-width mt-20 bg-surface-container-low">
+        <div className="flex flex-col md:flex-row justify-between items-center px-12 py-10 w-full max-w-[1440px] mx-auto">
+          <div className="font-sans text-[0.875rem] text-on-surface-variant font-medium mb-6 md:mb-0">
+            © 2024 Tarjetas RolePlay — Editorial Roleplay System
+          </div>
+          <div className="flex gap-8">
+            <a href="#" className="font-sans text-[0.875rem] text-on-surface-variant font-bold hover:text-primary transition-colors underline decoration-primary underline-offset-4">Soporte</a>
+            <a href="#" className="font-sans text-[0.875rem] text-on-surface-variant font-bold hover:text-primary transition-colors underline decoration-primary underline-offset-4">Guía de Estilo</a>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}

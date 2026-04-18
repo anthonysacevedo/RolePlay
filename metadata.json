@@ -1,0 +1,6 @@
+{
+  "name": "Tarjetas RolePlay",
+  "description": "Un generador de tarjetas dinámicas para juegos de rol con exportación a PDF y gestión de grupos por temas.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
