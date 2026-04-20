@@ -60,12 +60,12 @@ const AutoFitText = ({ text, initialFontSize = 11.2 }: { text: string; initialFo
 
 // Functional Preview Components
 const CardFront = ({ card }: { card: Partial<Card> }) => (
-  <div className="ambient-shadow rounded-2xl overflow-hidden aspect-[2.5/3.5] w-64 bg-surface-container-lowest border border-outline-variant/10 flex flex-col p-6 text-black font-sans">
+  <div className="ambient-shadow rounded-2xl overflow-hidden aspect-[2.5/3.5] w-64 bg-surface-container-lowest border-2 border-black/80 flex flex-col p-6 text-black font-sans">
     <div className="flex justify-between items-center mb-1 text-[0.9rem] font-bold tracking-tight uppercase">
       <span>Situación nº {card.situacion || '5'}</span>
       <span>{card.rol || 'Cliente'}</span>
     </div>
-    <div className="border-b border-black/20 mb-4" />
+    <div className="border-b-2 border-black/60 mb-4" />
     <div className="text-[0.65rem] leading-tight mb-4 text-justify [text-justify:inter-word] hyphens-auto font-light italic">
       Lee atentamente la situación, sin comentarla en voz alta, imagina cómo representarla y acción
     </div>
@@ -75,7 +75,7 @@ const CardFront = ({ card }: { card: Partial<Card> }) => (
       />
     </div>
     <div className="text-center">
-      <div className="border-t border-black/15 pt-2" />
+      <div className="border-t-2 border-black/50 pt-2" />
       <div className="text-[0.75rem] font-bold text-black uppercase tracking-wider mt-1">
         {card.tema || 'Sucursales y Nacionales'}
       </div>
@@ -324,17 +324,17 @@ export default function App() {
         container.appendChild(frontElement);
 
         const getFrontHTML = (fs: number) => `
-          <div style="width: 300px; height: 375px; background: white; border: 1px solid black; padding: 20px; color: black; font-family: Inter, sans-serif; display: flex; flex-direction: column; box-sizing: border-box;">
+          <div style="width: 300px; height: 375px; background: white; border: 2.5px solid black; padding: 20px; color: black; font-family: Inter, sans-serif; display: flex; flex-direction: column; box-sizing: border-box;">
             <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 12px; margin-bottom: 5px; text-transform: uppercase;">
               <span>Situación nº ${card.situacion}</span>
               <span>${card.rol}</span>
             </div>
-            <div style="border-bottom: 2px solid rgba(0,0,0,0.2); margin-bottom: 10px;"></div>
+            <div style="border-bottom: 3px solid rgba(0,0,0,0.6); margin-bottom: 10px;"></div>
             <div style="font-size: 8px; font-style: italic; margin-bottom: 10px; text-align: justify; hyphens: auto; text-justify: inter-word;">Lee atentamente la situación, sin comentarla en voz alta, imagina cómo representarla y acción</div>
             <div id="pdf-desc-container" style="flex-grow: 1; overflow: hidden; margin-bottom: 5px;">
               <div id="pdf-desc-text" style="font-size: ${fs}pt; line-height: 1.4; white-space: pre-wrap; text-align: justify; hyphens: auto; text-justify: inter-word;">${card.desarrollo}</div>
             </div>
-            <div style="border-top: 1px solid rgba(0,0,0,0.15); padding-top: 5px; text-align: center; font-size: 10px; font-weight: bold; text-transform: uppercase;">${card.tema}</div>
+            <div style="border-top: 2.5px solid rgba(0,0,0,0.5); padding-top: 5px; text-align: center; font-size: 10px; font-weight: bold; text-transform: uppercase;">${card.tema}</div>
           </div>
         `;
 
