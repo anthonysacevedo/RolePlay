@@ -69,14 +69,13 @@ const CardFront = ({ card }: { card: Partial<Card> }) => (
     <div className="text-[0.65rem] leading-tight mb-4 text-justify [text-justify:inter-word] hyphens-auto font-light italic">
       Lee atentamente la situación, sin comentarla en voz alta, imagina cómo representarla y acción
     </div>
-    <div className="flex-grow px-1 py-4 overflow-hidden mb-4 h-[120px]">
+    <div className="flex-grow px-3 py-4 overflow-hidden mb-4 h-[120px] border border-black/30 rounded-xl">
       <AutoFitText 
         text={card.desarrollo || 'Se comunica porque está esperando su envío (un paquete contra-reembolso / PC) en su domicilio.\n\nSe encuentra preocupada porque hoy se cumple el 5to día hábil desde que se realizó el envío y el mismo aún no llega a su domicilio.'} 
       />
     </div>
-    <div className="text-center">
-      <div className="border-t-2 border-black/50 pt-2" />
-      <div className="text-[0.75rem] font-bold text-black uppercase tracking-wider mt-1">
+    <div className="text-center pt-1">
+      <div className="text-[0.75rem] font-bold text-black uppercase tracking-wider">
         {card.tema || 'Sucursales y Nacionales'}
       </div>
     </div>
@@ -331,10 +330,10 @@ export default function App() {
             </div>
             <div style="border-bottom: 3px solid rgba(0,0,0,0.6); margin-bottom: 10px;"></div>
             <div style="font-size: 8px; font-style: italic; margin-bottom: 10px; text-align: justify; hyphens: auto; text-justify: inter-word;">Lee atentamente la situación, sin comentarla en voz alta, imagina cómo representarla y acción</div>
-            <div id="pdf-desc-container" style="flex-grow: 1; overflow: hidden; margin-bottom: 5px;">
+            <div id="pdf-desc-container" style="flex-grow: 1; overflow: hidden; margin-bottom: 10px; border: 1.2px solid rgba(0,0,0,0.4); border-radius: 12px; padding: 12px;">
               <div id="pdf-desc-text" style="font-size: ${fs}pt; line-height: 1.4; white-space: pre-wrap; text-align: justify; hyphens: auto; text-justify: inter-word;">${card.desarrollo}</div>
             </div>
-            <div style="border-top: 2.5px solid rgba(0,0,0,0.5); padding-top: 5px; text-align: center; font-size: 10px; font-weight: bold; text-transform: uppercase;">${card.tema}</div>
+            <div style="padding-top: 5px; text-align: center; font-size: 10px; font-weight: bold; text-transform: uppercase;">${card.tema}</div>
           </div>
         `;
 
