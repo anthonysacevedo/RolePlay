@@ -410,29 +410,29 @@ export default function App() {
     <div className="bg-surface text-on-surface">
       {/* TopAppBar Section */}
       <header className="docked full-width top-0 z-50 bg-surface dark:bg-slate-950">
-        <nav className="flex justify-between items-center w-full px-8 py-6 max-w-[1440px] mx-auto">
+        <nav className="flex justify-between items-center w-full px-4 md:px-8 py-4 md:py-6 max-w-[1440px] mx-auto">
           <div 
             onClick={() => { setSelectedGroupId(null); fetchGroups(); }}
-            className="text-2xl font-black tracking-tight text-on-surface cursor-pointer"
+            className="text-xl md:text-2xl font-black tracking-tight text-on-surface cursor-pointer"
           >
             Tarjetas RolePlay
           </div>
         </nav>
       </header>
 
-      <main className="max-w-[1440px] mx-auto px-8 py-12">
-        <h1 className="font-sans font-bold text-[2.75rem] leading-tight text-on-surface mb-12">Generador de Tarjetas</h1>
+      <main className="max-w-[1440px] mx-auto px-4 md:px-8 py-6 md:py-12">
+        <h1 className="font-sans font-bold text-3xl md:text-[2.75rem] leading-tight text-on-surface mb-8 md:mb-12">Generador de Tarjetas</h1>
         
         {/* Main Generator Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-10">
           
           {/* Left Column: Input Form */}
-          <section className="lg:col-span-5 space-y-10 bg-surface-container-low p-8 rounded-xl h-fit">
+          <section className="lg:col-span-5 space-y-8 md:space-y-10 bg-surface-container-low p-4 md:p-8 rounded-xl h-fit">
             <div className="space-y-6">
               <h2 className="text-xl font-bold tracking-tight border-b border-outline-variant/20 pb-4">Configuración de Escena</h2>
               
-              <div className="grid grid-cols-3 gap-4">
-                <div className="col-span-1">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="sm:col-span-1">
                   <label className="block text-[0.75rem] font-bold text-on-surface-variant uppercase tracking-wider mb-2">Situación</label>
                   <input 
                     name="situacion"
@@ -443,7 +443,7 @@ export default function App() {
                     type="text"
                   />
                 </div>
-                <div className="col-span-2">
+                <div className="sm:col-span-2">
                   <label className="block text-[0.75rem] font-bold text-on-surface-variant uppercase tracking-wider mb-2">Rol</label>
                   <input 
                     name="rol"
@@ -469,7 +469,7 @@ export default function App() {
 
               <div>
                 <label className="block text-[0.75rem] font-bold text-on-surface-variant uppercase tracking-wider mb-2">Tema</label>
-                <div className="flex gap-3">
+                <div className="flex flex-col sm:flex-row gap-3">
                   <input 
                     name="tema"
                     value={formData.tema}
@@ -480,7 +480,7 @@ export default function App() {
                   />
                   <button 
                     onClick={handleCreateOrUpdate}
-                    className="bg-inverse-surface text-inverse-on-surface px-6 py-4 rounded-xl font-bold transition-all hover:opacity-90 active:scale-95 whitespace-nowrap"
+                    className="bg-inverse-surface text-inverse-on-surface px-6 py-4 rounded-xl font-bold transition-all hover:opacity-90 active:scale-95 whitespace-nowrap w-full sm:w-auto"
                   >
                     {editingCardId ? 'Actualizar' : 'Crear'}
                   </button>
@@ -490,8 +490,8 @@ export default function App() {
 
             <div className="space-y-6 pt-6 border-t border-outline-variant/10">
               <h2 className="text-xl font-bold tracking-tight border-b border-outline-variant/20 pb-4">Editar Dorso</h2>
-              <div className="flex items-end gap-4">
-                <div className="flex-grow">
+              <div className="flex flex-col sm:flex-row items-end gap-4">
+                <div className="w-full sm:flex-grow">
                   <label className="block text-[0.75rem] font-bold text-on-surface-variant uppercase tracking-wider mb-2">Nombre del Set</label>
                   <input 
                     name="setLabel"
@@ -511,7 +511,7 @@ export default function App() {
                 />
                 <button 
                   onClick={() => fileInputRef.current?.click()}
-                  className="bg-primary-container/10 text-primary-container px-6 py-4 rounded-xl font-bold flex items-center gap-2 hover:bg-primary-container/20 transition-all h-[56px] whitespace-nowrap"
+                  className="bg-primary-container/10 text-primary-container px-6 py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-primary-container/20 transition-all h-[56px] whitespace-nowrap w-full sm:w-auto"
                 >
                   <Upload size={20} /> Imagen
                 </button>
@@ -520,17 +520,17 @@ export default function App() {
           </section>
 
           {/* Right Column: Preview */}
-          <section className="lg:col-span-7 bg-surface-container-high p-8 rounded-xl relative flex flex-col">
-            <div className="flex justify-between items-center mb-8">
-              <h2 className="text-xl font-bold">Tarjetas Preview</h2>
+          <section className="lg:col-span-7 bg-surface-container-high p-4 md:p-8 rounded-xl relative flex flex-col overflow-hidden">
+            <div className="flex justify-between items-center mb-6 md:mb-8">
+              <h2 className="text-lg md:text-xl font-bold">Tarjetas Preview</h2>
               {selectedGroup && (
-                <div className="text-sm font-medium text-on-surface-variant">
-                  {currentCardIndex + 1} de {cardsToShow.length} tarjetas
+                <div className="text-xs md:text-sm font-medium text-on-surface-variant">
+                  {currentCardIndex + 1} de {cardsToShow.length}
                 </div>
               )}
             </div>
 
-            <div className="flex-grow flex items-center justify-center gap-8 mb-12">
+            <div className="flex-grow flex flex-col xl:flex-row items-center justify-center gap-6 md:gap-8 mb-8 md:mb-12">
               <AnimatePresence mode="wait">
                 <motion.div
                   key={`front-${selectedGroupId}-${currentCardIndex}-${JSON.stringify(formData)}`}
@@ -590,22 +590,22 @@ export default function App() {
                   </button>
                 </div>
 
-                <div className="mt-8 flex justify-end gap-3 flex-wrap">
+                <div className="mt-8 grid grid-cols-1 sm:flex sm:justify-end gap-2 md:gap-3">
                   <button 
                     onClick={handleEdit}
-                    className="bg-transparent border-2 border-black text-black px-8 py-4 rounded-full font-bold text-sm uppercase tracking-widest transition-all hover:bg-black/5 active:scale-95"
+                    className="bg-transparent border-2 border-black text-black px-6 md:px-8 py-3 md:py-4 rounded-full font-bold text-xs md:text-sm uppercase tracking-widest transition-all hover:bg-black/5 active:scale-95"
                   >
                     Editar
                   </button>
                   <button 
                     onClick={handleDeleteCard}
-                    className="bg-transparent border-2 border-black text-black px-8 py-4 rounded-full font-bold text-sm uppercase tracking-widest transition-all hover:bg-error hover:text-on-error hover:border-error active:scale-95"
+                    className="bg-transparent border-2 border-black text-black px-6 md:px-8 py-3 md:py-4 rounded-full font-bold text-xs md:text-sm uppercase tracking-widest transition-all hover:bg-error hover:text-on-error hover:border-error active:scale-95"
                   >
                     Eliminar
                   </button>
                   <button 
                     onClick={() => exportPDF()}
-                    className="bg-primary text-on-primary px-10 py-4 rounded-full font-black text-sm uppercase tracking-widest shadow-2xl shadow-primary/30 transition-all hover:-translate-y-1 active:translate-y-0"
+                    className="bg-primary text-on-primary px-8 md:px-10 py-3 md:py-4 rounded-full font-black text-xs md:text-sm uppercase tracking-widest shadow-2xl shadow-primary/30 transition-all hover:-translate-y-1 active:translate-y-0"
                   >
                     Exportar PDF
                   </button>
@@ -621,9 +621,9 @@ export default function App() {
 
         {/* Gallery Section */}
         <section className="mt-24">
-          <div className="flex justify-between items-end mb-10">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 gap-4">
             <div>
-              <h2 className="font-sans font-bold text-3xl text-on-surface">Tarjetas Generadas</h2>
+              <h2 className="font-sans font-bold text-2xl md:text-3xl text-on-surface">Tarjetas Generadas</h2>
               <p className="text-on-surface-variant mt-2 font-medium">Gestiona tus colecciones y grupos de rol.</p>
             </div>
           </div>
@@ -702,8 +702,8 @@ export default function App() {
       </main>
 
       <footer className="full-width mt-20 bg-surface-container-low">
-        <div className="flex justify-center items-center px-12 py-10 w-full max-w-[1440px] mx-auto text-center">
-          <div className="font-sans text-[0.875rem] text-on-surface-variant font-medium">
+        <div className="flex justify-center items-center px-4 md:px-12 py-10 w-full max-w-[1440px] mx-auto text-center">
+          <div className="font-sans text-xs md:text-[0.875rem] text-on-surface-variant font-medium">
             2026 Tarjetas RolePlay - Creación Anthony Acevedo
           </div>
         </div>
