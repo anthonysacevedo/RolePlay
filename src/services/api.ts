@@ -1,7 +1,6 @@
 import axios from 'axios';
 
-// Detect if we are running in a static environment (like GitHub Pages) 
-// or if we should use the local Express server.
+// Static environment detection for GitHub Pages hybrid storage
 const isStatic = !!(import.meta as any).env?.PROD && 
                  !window.location.hostname.includes('run.app') && 
                  !window.location.hostname.includes('localhost');
